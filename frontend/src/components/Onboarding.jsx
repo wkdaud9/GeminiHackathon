@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowRight, UserCheck } from 'lucide-react';
+import { Sparkles, ArrowRight, UserCheck, Key, User } from 'lucide-react';
 
 const QUESTIONS = [
   {
@@ -21,72 +21,208 @@ const QUESTIONS = [
 ];
 
 export default function Onboarding({ onComplete }) {
-  const [step, setStep] = useState(0);
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [formData, setFormData] = useState({ username: '', password: '', name: '' });
+  const [step, setStep] = useState(-1); // -1: Auth, 0~2: Survey
   const [answers, setAnswers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleNext = (answer) => {
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    if (authMode === 'login') {
+      setIsLoading(true);
+      try {
+        const res = await fetch('http://localhost:8000/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: formData.username, password: formData.password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          onComplete(data.data.id);
+        } else {
+          setErrorMsg(data.detail || '로그인 실패');
+        }
+      } catch (err) {
+        setErrorMsg('서버와 연결할 수 없습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // Proceed to survey for signup
+      setStep(0);
+    }
+  };
+
+  const calculateScores = (answers) => {
+    // Simple mock logic for hackathon
+    let impulse = 50;
+    let laziness = 50;
+    if (answers[0] === "즉각적인 만족") impulse += 30;
+    if (answers[1] === "쇼핑이나 맛있는 음식") impulse += 20;
+    if (answers[2] === "전혀 포기 못함") laziness += 30;
+    if (answers[2] === "미래가 최우선") laziness -= 20;
+    return { impulse, laziness };
+  };
+
+  const handleNext = async (answer) => {
     const nextAnswers = [...answers, answer];
     setAnswers(nextAnswers);
+    
     if (step < QUESTIONS.length - 1) {
       setStep(step + 1);
     } else {
-      onComplete(nextAnswers);
+      // Finished Survey -> Call Signup API
+      setIsLoading(true);
+      const scores = calculateScores(nextAnswers);
+      try {
+        const res = await fetch('http://localhost:8000/api/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            username: formData.username, 
+            password: formData.password, 
+            name: formData.name,
+            impulse_score: scores.impulse,
+            laziness_score: scores.laziness
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          onComplete(data.data.id);
+        } else {
+          setErrorMsg(data.detail || '회원가입 실패');
+          setStep(-1); // Go back to auth screen
+        }
+      } catch (err) {
+        setErrorMsg('서버와 연결할 수 없습니다.');
+        setStep(-1);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-dark-bg/90 backdrop-blur-xl flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-[var(--color-toss-gray-900)]/90 backdrop-blur-xl flex items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="glass-panel max-w-lg w-full p-8 relative overflow-hidden"
+        className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 relative overflow-hidden"
       >
-        <div className="absolute top-0 left-0 w-full h-1 bg-white/10">
-          <motion.div 
-            className="h-full bg-gradient-to-r from-neon-blue to-neon-purple"
-            initial={{ width: 0 }}
-            animate={{ width: `${((step + 1) / QUESTIONS.length) * 100}%` }}
-          />
-        </div>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex flex-col gap-6"
-          >
-            <div className="flex items-center gap-2 text-neon-blue mb-2">
-              <Sparkles size={20} />
-              <span className="text-xs font-bold uppercase tracking-widest">Persona Analysis {step + 1}/{QUESTIONS.length}</span>
+        {step === -1 ? (
+          // --- Auth Form ---
+          <div className="flex flex-col gap-6">
+            <div className="text-center mb-4">
+              <h2 className="text-2xl font-bold text-[var(--color-toss-gray-900)]">
+                {authMode === 'login' ? 'Ego-Mirror 로그인' : '자아 동기화 시작하기'}
+              </h2>
+              <p className="text-[var(--color-toss-gray-600)] text-sm mt-2">
+                {authMode === 'login' ? '다시 오셨군요, 당신의 에고가 기다리고 있습니다.' : '간단한 질문을 통해 당신만의 에고고를 만듭니다.'}
+              </p>
             </div>
             
-            <h2 className="text-2xl font-bold leading-tight">
-              {QUESTIONS[step].text}
-            </h2>
+            {errorMsg && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl font-medium">{errorMsg}</div>}
 
-            <div className="grid grid-cols-1 gap-3">
-              {QUESTIONS[step].options.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => handleNext(opt)}
-                  className="w-full p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-neon-blue/50 transition-all text-left flex items-center justify-between group"
-                >
-                  <span className="text-gray-300 group-hover:text-white transition-colors">{opt}</span>
-                  <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-neon-blue" />
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        <div className="mt-8 flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase tracking-widest">
-          <div className="flex items-center gap-1">
-            <UserCheck size={12} /> Personality Sync Active
+            <form onSubmit={handleAuthSubmit} className="flex flex-col gap-4">
+              {authMode === 'signup' && (
+                <div>
+                  <label className="text-xs font-bold text-[var(--color-toss-gray-600)] uppercase">이름 (닉네임)</label>
+                  <input 
+                    required
+                    className="w-full mt-1 p-4 bg-[var(--color-toss-gray-50)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-toss-blue)]"
+                    value={formData.name}
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    placeholder="홍길동"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-bold text-[var(--color-toss-gray-600)] uppercase">아이디</label>
+                <input 
+                  required
+                  className="w-full mt-1 p-4 bg-[var(--color-toss-gray-50)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-toss-blue)]"
+                  value={formData.username}
+                  onChange={e => setFormData({...formData, username: e.target.value})}
+                  placeholder="ID"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-[var(--color-toss-gray-600)] uppercase">비밀번호</label>
+                <input 
+                  required
+                  type="password"
+                  className="w-full mt-1 p-4 bg-[var(--color-toss-gray-50)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-toss-blue)]"
+                  value={formData.password}
+                  onChange={e => setFormData({...formData, password: e.target.value})}
+                  placeholder="Password"
+                />
+              </div>
+              
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="mt-4 w-full p-4 bg-[var(--color-toss-blue)] text-white rounded-xl font-bold text-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {isLoading ? '처리 중...' : (authMode === 'login' ? '로그인' : '설문조사 시작')}
+              </button>
+            </form>
+            
+            <button 
+              onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setErrorMsg(''); }}
+              className="text-sm font-medium text-[var(--color-toss-blue)] hover:underline text-center"
+            >
+              {authMode === 'login' ? '처음이신가요? 계정 만들기' : '이미 계정이 있으신가요? 로그인'}
+            </button>
           </div>
-          <div>Ego-Mirror v1.0</div>
-        </div>
+        ) : (
+          // --- Survey Form ---
+          <>
+            <div className="absolute top-0 left-0 w-full h-1 bg-[var(--color-toss-gray-100)]">
+              <motion.div 
+                className="h-full bg-[var(--color-toss-blue)]"
+                initial={{ width: 0 }}
+                animate={{ width: `${((step + 1) / QUESTIONS.length) * 100}%` }}
+              />
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="flex flex-col gap-6"
+              >
+                <div className="flex items-center gap-2 text-[var(--color-toss-blue)] mb-2">
+                  <Sparkles size={20} />
+                  <span className="text-xs font-bold uppercase tracking-widest">Persona Sync {step + 1}/{QUESTIONS.length}</span>
+                </div>
+                
+                <h2 className="text-2xl font-bold leading-tight text-[var(--color-toss-gray-900)]">
+                  {QUESTIONS[step].text}
+                </h2>
+
+                <div className="grid grid-cols-1 gap-3">
+                  {QUESTIONS[step].options.map((opt) => (
+                    <button
+                      key={opt}
+                      disabled={isLoading}
+                      onClick={() => handleNext(opt)}
+                      className="w-full p-4 rounded-xl border border-[var(--color-toss-gray-200)] bg-[var(--color-toss-gray-50)] hover:bg-blue-50 hover:border-[var(--color-toss-blue)] hover:text-[var(--color-toss-blue)] transition-all text-left flex items-center justify-between group font-medium"
+                    >
+                      <span>{opt}</span>
+                      <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+            
+            {isLoading && <div className="mt-4 text-center text-sm font-medium text-[var(--color-toss-blue)] animate-pulse">자아를 분석하여 에고고를 생성 중입니다...</div>}
+          </>
+        )}
       </motion.div>
     </div>
   );
