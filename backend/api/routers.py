@@ -4,7 +4,7 @@ from typing import Optional, List
 from services.gemini_service import generate_egogo_roast, generate_persona_prompt, generate_morning_briefing
 from services.supabase_service import (
     get_first_user, get_user, get_goals, upsert_goal, 
-    get_or_create_daily_log, get_log_messages, insert_log_message, get_user_prompt, upsert_user_prompt,
+    get_or_create_daily_log, get_daily_log, get_daily_logs, get_log_messages, insert_log_message, get_user_prompt, upsert_user_prompt,
     signup_user, login_user, update_user_score
 )
 
@@ -33,6 +33,8 @@ class ChatRequest(BaseModel):
     user_id: Optional[str] = None
     message: str
     image_base64: Optional[str] = None
+    log_id: Optional[str] = None
+    goal_number: Optional[int] = None
 
 def _resolve_user_id(user_id: Optional[str]):
     """Auth가 미완성인 경우를 대비해 user_id가 없으면 첫 번째 유저를 반환합니다."""
@@ -144,7 +146,9 @@ async def get_morning_briefing(req: ChatRequest):
         goals = get_goals(uid)
         
         # 1. 데일리 로그 가져오기 (없으면 생성)
-        daily_log = get_or_create_daily_log(uid)
+        daily_log = get_daily_log(req.log_id) if req.log_id else get_or_create_daily_log(uid)
+        if not daily_log:
+            raise HTTPException(status_code=404, detail="Chat log not found.")
         log_id = daily_log["id"]
         
         # 2. 아침 브리핑 텍스트 생성
@@ -157,6 +161,7 @@ async def get_morning_briefing(req: ChatRequest):
             "status": "success",
             "data": {
                 "roast": briefing_text,
+                "log_id": log_id,
                 "assistant_message_id": assistant_msg["id"] if assistant_msg else None
             }
         }
@@ -173,14 +178,16 @@ async def chat_with_egogo(req: ChatRequest):
         goals = get_goals(uid)
         
         # 1. 데일리 로그 가져오기 (없으면 생성)
-        daily_log = get_or_create_daily_log(uid)
+        daily_log = get_daily_log(req.log_id) if req.log_id else get_or_create_daily_log(uid)
+        if not daily_log:
+            raise HTTPException(status_code=404, detail="Chat log not found.")
         log_id = daily_log["id"]
         
         # 2. 유저 메시지 DB 저장 (이미지가 있으면 내용에 [사진 첨부] 텍스트 추가)
         msg_content = req.message
         if req.image_base64:
             msg_content = f"[사진 첨부됨] {req.message}"
-        insert_log_message(log_id, "user", msg_content)
+        insert_log_message(log_id, "user", msg_content, req.goal_number)
         
         # 3. 과거 대화 내역 가져오기 (오늘 하루치)
         chat_history = get_log_messages(log_id)
@@ -194,12 +201,15 @@ async def chat_with_egogo(req: ChatRequest):
             user_info=user_info,
             goals=goals,
             chat_history=chat_history[:-1], # 마지막 방금 넣은 유저 메시지 제외
-            new_message=req.message,
+            new_message=(
+                f"[목표 {req.goal_number} 심층 대화] {req.message}"
+                if req.goal_number else req.message
+            ),
             image_base64=req.image_base64
         )
         
         roast_text = egogo_response.get("roast", "오류가 발생했습니다.")
-        related_goal = egogo_response.get("related_goal_number")
+        related_goal = egogo_response.get("related_goal_number") or req.goal_number
         is_violation = egogo_response.get("is_violation", False)
         
         # 6. 실패 부채 (Ego-Debt) 적용 및 페르소나 진화
@@ -222,6 +232,7 @@ async def chat_with_egogo(req: ChatRequest):
                 "related_goal_number": related_goal,
                 "is_violation": is_violation,
                 "laziness_score": current_laziness,
+                "log_id": log_id,
                 "assistant_message_id": assistant_msg["id"] if assistant_msg else None
             }
         }
@@ -235,8 +246,30 @@ async def chat_with_egogo(req: ChatRequest):
 async def fetch_chat_history(user_id: Optional[str] = None):
     try:
         uid = _resolve_user_id(user_id)
-        daily_log = get_or_create_daily_log(uid)
-        messages = get_log_messages(daily_log["id"])
+        logs = get_daily_logs(uid)
+        if not logs:
+            logs = [get_or_create_daily_log(uid)]
+        messages = []
+        for log in logs:
+            for msg in get_log_messages(log["id"]):
+                msg["log_id"] = log["id"]
+                msg["log_date"] = log.get("log_date")
+                messages.append(msg)
+        return {"status": "success", "data": messages}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/chat/logs/{log_id}/messages")
+async def fetch_log_messages(log_id: str, user_id: Optional[str] = None):
+    try:
+        _resolve_user_id(user_id)
+        log = get_daily_log(log_id)
+        if not log:
+            raise HTTPException(status_code=404, detail="Chat log not found.")
+        messages = get_log_messages(log_id)
+        for msg in messages:
+            msg["log_id"] = log_id
+            msg["log_date"] = log.get("log_date")
         return {"status": "success", "data": messages}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

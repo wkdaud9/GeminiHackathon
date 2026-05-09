@@ -43,11 +43,17 @@ def get_user(user_id: str):
 def signup_user(username: str, password: str, name: str, impulse_score: int, laziness_score: int):
     if not supabase: return None
     try:
+        username_clean = username.strip().lower()
+        # Check if exists first for better error handling
+        existing = supabase.table("users").select("id").eq("username", username_clean).execute()
+        if existing.data:
+            return None
+            
         new_user = {
-            "id": str(uuid.uuid4()), # 백엔드에서 명시적 UUID 부여
-            "username": username,
-            "password": password, # 해커톤 프로토타입용 평문 저장
-            "name": name,
+            "id": str(uuid.uuid4()), 
+            "username": username_clean,
+            "password": password.strip(),
+            "name": name.strip(),
             "impulse_score": impulse_score,
             "laziness_score": laziness_score
         }
@@ -60,7 +66,9 @@ def signup_user(username: str, password: str, name: str, impulse_score: int, laz
 def login_user(username: str, password: str):
     if not supabase: return None
     try:
-        res = supabase.table("users").select("*").eq("username", username).eq("password", password).execute()
+        username_clean = username.strip().lower()
+        password_clean = password.strip()
+        res = supabase.table("users").select("*").eq("username", username_clean).eq("password", password_clean).execute()
         return res.data[0] if res.data else None
     except Exception as e:
         print("Login error:", e)
@@ -116,6 +124,16 @@ def get_or_create_daily_log(user_id: str):
         }
         create_res = supabase.table("daily_logs").insert(new_log).execute()
         return create_res.data[0]
+
+def get_daily_logs(user_id: str):
+    if not supabase: return []
+    res = supabase.table("daily_logs").select("*").eq("user_id", user_id).order("log_date", desc=True).execute()
+    return res.data
+
+def get_daily_log(log_id: str):
+    if not supabase: return None
+    res = supabase.table("daily_logs").select("*").eq("id", log_id).execute()
+    return res.data[0] if res.data else None
 
 def get_log_messages(log_id: str):
     if not supabase: return []

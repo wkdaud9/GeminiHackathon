@@ -2,6 +2,7 @@
 
 @theme {
   --color-toss-blue: #3182f6;
+  --color-egogo-purple: #7048e8;
   --color-toss-gray-50: #f9fafb;
   --color-toss-gray-100: #f2f4f6;
   --color-toss-gray-200: #e5e8eb;
@@ -37,5 +38,51 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: var(--color-toss-gray-200);
     border-radius: 10px;
+  }
+
+  .egogo-glitch {
+    animation: glitch 0.5s infinite;
+  }
+
+  @keyframes glitch {
+    0% { transform: translate(0) }
+    20% { transform: translate(-2px, 2px) }
+    40% { transform: translate(-2px, -2px) }
+    60% { transform: translate(2px, 2px) }
+    80% { transform: translate(2px, -2px) }
+    100% { transform: translate(0) }
+  }
+
+  .float-animation {
+    animation: floating 3s ease-in-out infinite;
+  }
+
+  .egogo-character-3d {
+    transform-style: preserve-3d;
+    transform: perspective(900px) rotateX(8deg) rotateY(-14deg) translateZ(20px);
+    filter: drop-shadow(0 26px 28px rgba(25, 31, 40, 0.22));
+    transition: transform 250ms ease, filter 250ms ease;
+  }
+
+  .egogo-character-3d::after {
+    content: "";
+    position: absolute;
+    inset: auto 12% -8% 12%;
+    height: 22%;
+    border-radius: 999px;
+    background: radial-gradient(ellipse, rgba(25, 31, 40, 0.24), transparent 68%);
+    transform: translateZ(-80px) rotateX(82deg);
+    z-index: -1;
+  }
+
+  .egogo-angry-3d {
+    transform: perspective(900px) rotateX(4deg) rotateY(16deg) translateZ(44px) scale(1.08);
+    filter: drop-shadow(0 30px 34px rgba(239, 68, 68, 0.35));
+  }
+
+  @keyframes floating {
+    0% { transform: translateY(0px) }
+    50% { transform: translateY(-10px) }
+    100% { transform: translateY(0px) }
   }
 }
