@@ -40,7 +40,7 @@ export default function Onboarding({ onComplete }) {
         });
         const data = await res.json();
         if (res.ok) {
-          onComplete(data.data.id);
+          onComplete(data.data);
         } else {
           setErrorMsg(data.detail || '로그인 실패');
         }
@@ -58,11 +58,9 @@ export default function Onboarding({ onComplete }) {
   const calculateScores = (answers) => {
     // Simple mock logic for hackathon
     let impulse = 50;
-    let laziness = 50;
+    let laziness = 70;
     if (answers[0] === "즉각적인 만족") impulse += 30;
     if (answers[1] === "쇼핑이나 맛있는 음식") impulse += 20;
-    if (answers[2] === "전혀 포기 못함") laziness += 30;
-    if (answers[2] === "미래가 최우선") laziness -= 20;
     return { impulse, laziness };
   };
 
@@ -90,7 +88,7 @@ export default function Onboarding({ onComplete }) {
         });
         const data = await res.json();
         if (res.ok) {
-          onComplete(data.data.id);
+          onComplete(data.data);
         } else {
           setErrorMsg(data.detail || '회원가입 실패');
           setStep(-1); // Go back to auth screen
@@ -116,7 +114,7 @@ export default function Onboarding({ onComplete }) {
           <div className="flex flex-col gap-6">
             <div className="text-center mb-4">
               <h2 className="text-2xl font-bold text-[var(--color-toss-gray-900)]">
-                {authMode === 'login' ? 'Ego-Mirror 로그인' : '자아 동기화 시작하기'}
+                {authMode === 'login' ? 'EgoGo 로그인' : '자아 동기화 시작하기'}
               </h2>
               <p className="text-[var(--color-toss-gray-600)] text-sm mt-2">
                 {authMode === 'login' ? '다시 오셨군요, 당신의 에고가 기다리고 있습니다.' : '간단한 질문을 통해 당신만의 에고고를 만듭니다.'}

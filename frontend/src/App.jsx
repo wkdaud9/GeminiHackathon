@@ -40,10 +40,23 @@ function App() {
     const savedUser = localStorage.getItem('ego_mirror_user');
 
     if (savedReg && savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setIsRegistered(true);
-      setUser(parsedUser);
-      fetchUserData(parsedUser.id);
+      let parsedUser;
+      try {
+        parsedUser = JSON.parse(savedUser);
+      } catch (e) {
+        parsedUser = savedUser;
+      }
+      
+      const uid = typeof parsedUser === 'string' ? parsedUser : parsedUser?.id;
+      
+      if (uid) {
+        setIsRegistered(true);
+        // user 객체가 제대로 로드될 때까지 문자열이라도 설정
+        setUser(typeof parsedUser === 'string' ? { id: uid } : parsedUser);
+        fetchUserData(uid);
+      } else {
+        handleLogout();
+      }
     }
   }, []);
 
@@ -184,15 +197,13 @@ function App() {
     return goals.map((title, index) => {
       const goalNumber = index + 1;
       const related = history.filter((item) => item.relatedGoal === goalNumber);
-      const userTurns = related.filter((item) => item.sender === 'User').length;
-      const assistantTurns = related.filter((item) => item.sender === 'Egogo').length;
-      const enoughData = userTurns >= 3 && assistantTurns >= 3;
+      const enoughData = related.length > 0;
       return {
         title,
         goalNumber,
         relatedCount: related.length,
         enoughData,
-        score: enoughData ? Math.min(100, Math.round((related.length / 10) * 100)) : 0,
+        score: Math.min(100, Math.round((related.length / 20) * 100)), // 20번 대화하면 100% 달성으로 스케일링
       };
     });
   }, [goals, history]);
@@ -215,21 +226,7 @@ function App() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-white shadow-inner">
-        <header className="px-8 py-6 flex items-center justify-between border-b border-[var(--color-toss-gray-100)] bg-white/80 backdrop-blur-md sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--color-toss-blue)] rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">E</div>
-            <div>
-              <h1 className="text-xl font-black text-[var(--color-toss-blue)]">Egogo Mirror</h1>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Self-Data Intelligence</p>
-            </div>
-          </div>
-          <div className={`px-4 py-2 rounded-2xl flex items-center gap-2 border ${lazinessScore >= 80 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
-            <div className={`w-2 h-2 rounded-full ${lazinessScore >= 80 ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-            <span className={`text-xs font-black uppercase tracking-widest ${lazinessScore >= 80 ? 'text-red-600' : 'text-green-600'}`}>
-              Debt Level: {lazinessScore}
-            </span>
-          </div>
-        </header>
+
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8 custom-scrollbar bg-[var(--color-toss-gray-50)]">
           <div className="max-w-6xl mx-auto h-full">

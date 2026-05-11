@@ -21,7 +21,7 @@ export default function GoalManager({ goals, onUpdateGoal, onAddGoal, onDeleteGo
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-xl font-bold text-[var(--color-toss-gray-900)]">나의 목표 설정</h2>
-          <p className="text-sm text-[var(--color-toss-gray-600)] mt-1">에고 미러가 집중할 핵심 가치들</p>
+          <p className="text-sm text-[var(--color-toss-gray-600)] mt-1">에고고가 집중할 핵심 가치들</p>
         </div>
         {goals.length < 10 && (
           <button 

@@ -80,7 +80,7 @@ def update_user_score(user_id: str, penalty_points: int = 5):
     try:
         user = get_user(user_id)
         if not user: return None
-        new_score = min(100, user.get("laziness_score", 50) + penalty_points)
+        new_score = max(0, min(100, user.get("laziness_score", 50) + penalty_points))
         res = supabase.table("users").update({"laziness_score": new_score}).eq("id", user_id).execute()
         return res.data[0] if res.data else None
     except Exception as e:
@@ -101,8 +101,17 @@ def upsert_goal(user_id: str, goal_number: int, title: str, description: str = "
         "description": description,
         "is_active": True
     }
-    # UNIQUE(user_id, goal_number) 제약조건이 있으므로 upsert 사용
-    res = supabase.table("goals").upsert(data, on_conflict="user_id,goal_number").execute()
+    
+    # 1) 먼저 해당 유저의 해당 목표 번호가 이미 있는지 조회합니다.
+    existing = supabase.table("goals").select("id").eq("user_id", user_id).eq("goal_number", goal_number).execute()
+    
+    if existing.data and len(existing.data) > 0:
+        # 2) 있으면 업데이트
+        res = supabase.table("goals").update(data).eq("user_id", user_id).eq("goal_number", goal_number).execute()
+    else:
+        # 3) 없으면 새로 삽입
+        res = supabase.table("goals").insert(data).execute()
+        
     return res.data
 
 def get_or_create_daily_log(user_id: str):

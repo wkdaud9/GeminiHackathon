@@ -221,6 +221,14 @@ async def chat_with_egogo(req: ChatRequest):
                 # 점수가 올라갔으므로 페르소나 프롬프트 재생성 (더 독해짐)
                 new_prompt = generate_persona_prompt(updated_user)
                 upsert_user_prompt(uid, f"{updated_user['name']} 전용 에고고", new_prompt)
+        else:
+            # 칭찬 받을 행동을 했을 경우 게으름 지수 감소 (보상)
+            updated_user = update_user_score(uid, penalty_points=-5)
+            if updated_user:
+                current_laziness = updated_user.get("laziness_score", 50)
+                # 점수가 내려갔으므로 페르소나 프롬프트 재생성 (다시 순해짐)
+                new_prompt = generate_persona_prompt(updated_user)
+                upsert_user_prompt(uid, f"{updated_user['name']} 전용 에고고", new_prompt)
         
         # 7. Egogo 메시지 DB 저장
         assistant_msg = insert_log_message(log_id, "assistant", roast_text, related_goal)

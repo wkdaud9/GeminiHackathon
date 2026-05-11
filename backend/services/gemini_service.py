@@ -131,7 +131,7 @@ def generate_persona_prompt(user_info: dict) -> str:
     laziness = user_info.get("laziness_score", 50)
     
     prompt = f"""
-당신은 '에고 미러(Ego-Mirror)' 서비스의 프롬프트 엔지니어입니다.
+당신은 'EgoGo' 서비스의 프롬프트 엔지니어입니다.
 새로운 사용자를 전담 마크할 AI 챗봇(이름: 에고고)의 '시스템 프롬프트'를 작성해 주세요.
 
 [사용자 정보]

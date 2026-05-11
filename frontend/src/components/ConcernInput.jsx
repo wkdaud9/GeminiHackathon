@@ -31,7 +31,7 @@ export default function ConcernInput({ onAnalyze }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <textarea
           className="w-full bg-[var(--color-toss-gray-100)] border-none rounded-3xl p-6 text-[15px] text-[var(--color-toss-gray-900)] placeholder-[var(--color-toss-gray-300)] focus:ring-2 focus:ring-[var(--color-toss-blue)] transition-all resize-none h-32 leading-relaxed"
-          placeholder="해결하고 싶은 고민이나 선택의 순간을 적어 보세요. 에고 미러가 함께 고민할게요."
+          placeholder="해결하고 싶은 고민이나 선택의 순간을 적어 보세요. 에고고가 함께 고민할게요."
           value={concern}
           onChange={(e) => setConcern(e.target.value)}
         />
